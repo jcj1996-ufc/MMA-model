@@ -73,46 +73,49 @@ def parse_profile(url):
             if "STANCE" in t.upper():
                 dat["Stance"] = t.split(":")[-1].strip()
 
-        # ---- Main Stats (right box) ----
-        # Lines like "SLpM: 3.45", "Str. Acc.: 54%", "SApM: 2.31", etc.
-        for li in soup.select("ul.b-list__box-list--right li"):
+                # ---- Main Stats (works on modern UFCStats layout) ----
+        # Format example:
+        # SLpM: 2.46
+        # Str. Acc.: 59%
+        # SApM: 1.27
+        # Str. Def.: 64%
+        # TD Avg.: 3.17
+        # TD Acc.: 62%
+        # TD Def.: 90%
+        # Sub. Avg.: 1.00
+
+        for li in soup.select("ul.b-list__box-list li"):
             t = li.get_text(" ", strip=True)
 
             def num_after(colon_text):
                 m = re.search(r":\s*([-+]?\d+(?:\.\d+)?)", colon_text)
                 return float(m.group(1)) if m else None
 
-            # Significant Strikes Landed per Minute
+            # SLpM
             if "SLpM" in t:
                 v = num_after(t)
                 if v is not None:
                     dat["SSLpm"] = v
 
-            # Significant Strikes Absorbed per Minute
+            # SApM
             if "SApM" in t:
                 v = num_after(t)
                 if v is not None:
                     dat["SSApm"] = v
 
-            # Striking Accuracy %
+            # Str. Acc. %
             if "Str. Acc." in t:
                 m = re.search(r"(\d+)\s*%", t)
                 if m:
                     dat["Acc"] = int(m.group(1)) / 100.0
 
-            # Striking Defense %
+            # Str. Def. %
             if "Str. Def." in t:
                 m = re.search(r"(\d+)\s*%", t)
                 if m:
                     dat["Def"] = int(m.group(1)) / 100.0
 
-            # Knockdowns Avg (per 15 min in UFCStats)
-            if "KD Avg." in t or "Knockdown Avg." in t:
-                v = num_after(t)
-                if v is not None:
-                    dat["KDpm"] = v
-
-            # Takedown Avg (per 15 min)
+            # Takedown Avg (per 15)
             if "TD Avg." in t:
                 v = num_after(t)
                 if v is not None:
@@ -130,7 +133,13 @@ def parse_profile(url):
                 if m:
                     dat["TDD"] = int(m.group(1)) / 100.0
 
-            # Submission Avg (per 15 min)
+            # Knockdown Avg (per 15)
+            if "KD Avg." in t or "Knockdown Avg." in t:
+                v = num_after(t)
+                if v is not None:
+                    dat["KDpm"] = v
+
+            # Submission Avg (per 15)
             if "Sub. Avg." in t:
                 v = num_after(t)
                 if v is not None:
