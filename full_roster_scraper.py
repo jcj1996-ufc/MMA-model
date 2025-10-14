@@ -6,6 +6,18 @@ from bs4 import BeautifulSoup
 import os
 QUICK = os.getenv("QUICK", "0") == "1"
 LETTERS = os.getenv("LETTERS")
+from datetime import datetime, timezone
+
+ACTIVE_YEARS = float(os.getenv("ACTIVE_YEARS", "3"))     # keep fighters with a UFC bout in last N years
+MIN_BOUTS    = int(os.getenv("MIN_BOUTS", "1"))          # require at least N UFC bouts
+
+def _parse_date(txt):
+    for fmt in ["%b. %d, %Y", "%b %d, %Y", "%B %d, %Y", "%Y-%m-%d"]:
+        try:
+            return datetime.strptime(txt.strip(), fmt).replace(tzinfo=timezone.utc)
+        except Exception:
+            pass
+    return None
 BASE = "http://ufcstats.com"
 HEADERS = {"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"}
 COLS = ["Name","Age","Height_in","Reach_in","Stance","SSLpm","SSApm","Acc","Def","KDpm","TD15","TDAcc","TDD","TopCtl","BottomCtl","Sub15","OppEsc","Attpm","LateRet","KDtakenpm","KDlast12m","Whiff","WPA","Fouls","Camp","HeadRate","CARDIO_ret","FinishRate"]
