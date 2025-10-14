@@ -7,9 +7,11 @@ jobs:
   scrape:
     runs-on: ubuntu-latest
     permissions:
+    timeout-minutes: 25
       contents: write
     env:
-  LETTERS: "abcdef"
+      ACTIVE_YEARS: "3"
+      MIN_BOUTS: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
