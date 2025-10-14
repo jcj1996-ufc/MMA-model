@@ -13,7 +13,12 @@ def _get(url, to=25):
     r = requests.get(url, headers=HEADERS, timeout=to); r.raise_for_status(); return r.text
 
 def iter_roster_urls():
-    letters = list("ab") if QUICK else list("abcdefghijklmnopqrstuvwxyz") + ["other"]
+    if LETTERS:
+        letters = list(LETTERS)
+    elif QUICK:
+        letters = list("ab")
+    else:
+        letters = list("abcdefghijklmnopqrstuvwxyz") + ["other"]
     for c in letters:
         url = f"{BASE}/statistics/fighters?char={c}&page=all"
         try:
