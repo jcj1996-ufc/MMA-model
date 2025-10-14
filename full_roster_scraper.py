@@ -54,16 +54,17 @@ def parse_profile(url):
         dat["Name"] = name.get_text(strip=True) if name else ""
 
         # ---- Physicals / stance (left box) ----
+        # This box appears on all layouts
         for li in soup.select("ul.b-list__box-list li"):
             t = li.get_text(" ", strip=True)
 
-            # Height "6' 2""
+            # Height like: 6' 2"
             if "Height" in t:
                 m = re.findall(r"(\d+)\s*'\s*(\d+)", t)
                 if m:
                     dat["Height_in"] = int(m[0][0]) * 12 + int(m[0][1])
 
-            # Reach "74\"" or "74 in"
+            # Reach like: 74" or 74 in
             if "Reach" in t:
                 m = re.findall(r"(\d+)\s*(?:\"|in)", t.lower())
                 if m:
@@ -71,17 +72,18 @@ def parse_profile(url):
 
             # Stance
             if "STANCE" in t.upper():
-                dat["Stance"] = t.split(":")[-1].
-        # ---- Main Stats (robust across layouts) ----
-        # Try multiple possible <ul> variants used on UFCStats
+                dat["Stance"] = t.split(":")[-1].strip()
+
+        # ---- Main Stats (robust across UFCStats layouts) ----
+        # We try several known list variants used on different template versions.
         stats_selectors = [
             "ul.b-list__box-list.b-list__box-list--style-none li",
             "ul.b-list__box-list.b-list__box-list--border-top li",
+            "div.b-list__info-box.b-list__info-box--right ul.b-list__box-list li",
             "ul.b-list__box-list--right li",
             "ul.b-list__box-list li",
         ]
 
-        found_any = False
         got = set()
 
         def num_after(colon_text):
@@ -99,61 +101,60 @@ def parse_profile(url):
                 if "SLpM" in t and "SSLpm" not in got:
                     v = num_after(t)
                     if v is not None:
-                        dat["SSLpm"] = v; got.add("SSLpm"); found_any = True
+                        dat["SSLpm"] = v; got.add("SSLpm")
 
                 elif "SApM" in t and "SSApm" not in got:
                     v = num_after(t)
                     if v is not None:
-                        dat["SSApm"] = v; got.add("SSApm"); found_any = True
+                        dat["SSApm"] = v; got.add("SSApm")
 
                 elif "Str. Acc." in t and "Acc" not in got:
                     m = re.search(r"(\d+)\s*%", t)
                     if m:
-                        dat["Acc"] = int(m.group(1)) / 100.0; got.add("Acc"); found_any = True
+                        dat["Acc"] = int(m.group(1)) / 100.0; got.add("Acc")
 
                 elif "Str. Def." in t and "Def" not in got:
                     m = re.search(r"(\d+)\s*%", t)
                     if m:
-                        dat["Def"] = int(m.group(1)) / 100.0; got.add("Def"); found_any = True
+                        dat["Def"] = int(m.group(1)) / 100.0; got.add("Def")
 
                 elif ("KD Avg." in t or "Knockdown Avg." in t) and "KDpm" not in got:
                     v = num_after(t)
                     if v is not None:
-                        dat["KDpm"] = v; got.add("KDpm"); found_any = True
+                        dat["KDpm"] = v; got.add("KDpm")
 
                 elif "TD Avg." in t and "TD15" not in got:
                     v = num_after(t)
                     if v is not None:
-                        dat["TD15"] = v; got.add("TD15"); found_any = True
+                        dat["TD15"] = v; got.add("TD15")
 
                 elif "TD Acc." in t and "TDAcc" not in got:
                     m = re.search(r"(\d+)\s*%", t)
                     if m:
-                        dat["TDAcc"] = int(m.group(1)) / 100.0; got.add("TDAcc"); found_any = True
+                        dat["TDAcc"] = int(m.group(1)) / 100.0; got.add("TDAcc")
 
                 elif "TD Def." in t and "TDD" not in got:
                     m = re.search(r"(\d+)\s*%", t)
                     if m:
-                        dat["TDD"] = int(m.group(1)) / 100.0; got.add("TDD"); found_any = True
+                        dat["TDD"] = int(m.group(1)) / 100.0; got.add("TDD")
 
                 elif "Sub. Avg." in t and "Sub15" not in got:
                     v = num_after(t)
                     if v is not None:
-                        dat["Sub15"] = v; got.add("Sub15"); found_any = True
+                        dat["Sub15"] = v; got.add("Sub15")
 
-            # If we already found a bunch, no need to try other selectors
+            # If we already captured most of them, no need to scan other selectors
             if len(got) >= 7:
                 break
 
-        if not found_any:
-            # Log once per profile so you can see which pages need attention
+        if not got:
             print(f"[warn] no stats list found for {dat.get('Name','?')} ({url})", file=sys.stderr)
-        # ---- Fight History Table: get most recent fight date + bout count ----
+
+        # ---- Fight History Table: most recent fight date + bout count ----
         last_dt = None
         bouts = 0
         for row in soup.select("table.b-fight-details__table tbody tr"):
             cells = [c.get_text(" ", strip=True) for c in row.select("td")]
-            # look for any cell that parses as a date
             for c in reversed(cells):
                 dt = _parse_date(c)
                 if dt:
