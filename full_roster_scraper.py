@@ -32,21 +32,92 @@ def iter_roster_urls():
             print(f"[warn] roster page {c}: {e}", file=sys.stderr)
 
 def parse_profile(url):
-    dat={"Height_in":"","Reach_in":"","Stance":"","Age":""}
+    import re
+    dat = {"Height_in":"", "Reach_in":"", "Stance":"", "Age":""}
     try:
-        soup = BeautifulSoup(_get(url), "lxml")
+        html = _get(url)
+        soup = BeautifulSoup(html, "lxml")
+
+        # ---- Name ----
         name = soup.select_one("span.b-content__title-highlight")
         dat["Name"] = name.get_text(strip=True) if name else ""
+
+        # ---- Physicals / stance (left box) ----
         for li in soup.select("ul.b-list__box-list li"):
             t = li.get_text(" ", strip=True)
+
+            # Height like: 6' 2"
             if "Height" in t:
-                m=re.findall(r"(\d+)'(\d+)", t)
-                if m: dat["Height_in"]=int(m[0][0])*12+int(m[0][1])
+                m = re.findall(r"(\d+)\s*'\s*(\d+)", t)
+                if m:
+                    dat["Height_in"] = int(m[0][0]) * 12 + int(m[0][1])
+
+            # Reach like: 74" or 74 in
             if "Reach" in t:
-                m=re.findall(r"(\d+)\s*in", t.lower())
-                if m: dat["Reach_in"]=float(m[0])
+                m = re.findall(r"(\d+)\s*(?:\"|in)", t.lower())
+                if m:
+                    dat["Reach_in"] = float(m[0])
+
+            # Stance
             if "STANCE" in t.upper():
-                dat["Stance"]=t.split(":")[-1].strip()
+                dat["Stance"] = t.split(":")[-1].strip()
+
+        # ---- Main stats (right box) ----
+        # Lines look like: "SLpM: 3.45", "Str. Acc.: 54%", "SApM: 2.31", etc.
+        for li in soup.select("ul.b-list__box-list--right li"):
+            t = li.get_text(" ", strip=True)
+
+            def num_after(colon_text):
+                m = re.search(r":\s*([-+]?\d+(?:\.\d+)?)", colon_text)
+                return float(m.group(1)) if m else None
+
+            if "SLpM" in t:  # Significant Strikes Landed per Min
+                v = num_after(t)
+                if v is not None:
+                    dat["SSLpm"] = v
+
+            if "SApM" in t:  # Significant Strikes Absorbed per Min
+                v = num_after(t)
+                if v is not None:
+                    dat["SSApm"] = v
+
+            if "Str. Acc." in t:
+                m = re.search(r"(\d+)\s*%", t)
+                if m:
+                    dat["Acc"] = int(m.group(1)) / 100.0
+
+            if "Str. Def." in t:
+                m = re.search(r"(\d+)\s*%", t)
+                if m:
+                    dat["Def"] = int(m.group(1)) / 100.0
+
+            if "KD Avg." in t or "Knockdown Avg." in t:
+                v = num_after(t)
+                if v is not None:
+                    # UFCStats "KD Avg." is per 15; we’ll use as rate proxy
+                    dat["KDpm"] = v
+
+            if "TD Avg." in t:
+                v = num_after(t)
+                if v is not None:
+                    dat["TD15"] = v  # takedowns per 15
+
+            if "TD Acc." in t:
+                m = re.search(r"(\d+)\s*%", t)
+                if m:
+                    dat["TDAcc"] = int(m.group(1)) / 100.0
+
+            if "TD Def." in t:
+                m = re.search(r"(\d+)\s*%", t)
+                if m:
+                    dat["TDD"] = int(m.group(1)) / 100.0
+
+            if "Sub. Avg." in t:
+                v = num_after(t)
+                if v is not None:
+                    dat["Sub15"] = v
+
+        # Anything missing will be filled by defaults later.
     except Exception as e:
         print(f"[warn] profile parse: {url}: {e}", file=sys.stderr)
     return dat
