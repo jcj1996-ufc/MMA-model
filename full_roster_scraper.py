@@ -45,7 +45,7 @@ def iter_roster_urls():
 
 def parse_profile(url):
     import re
-    dat = {"Height_in":"", "Reach_in":"", "Stance":"", "Age":""}
+    dat = {"Height_in":"", "Reach_in":"", "Stance":"", "Age":"", "LastFightDate":"", "BoutCount":0}
     try:
         html = _get(url)
         soup = BeautifulSoup(html, "lxml")
@@ -83,53 +83,59 @@ def parse_profile(url):
                 m = re.search(r":\s*([-+]?\d+(?:\.\d+)?)", colon_text)
                 return float(m.group(1)) if m else None
 
-            if "SLpM" in t:  # Significant Strikes Landed per Min
+            if "SLpM" in t:
                 v = num_after(t)
-                if v is not None:
-                    dat["SSLpm"] = v
+                if v is not None: dat["SSLpm"] = v
 
-            if "SApM" in t:  # Significant Strikes Absorbed per Min
+            if "SApM" in t:
                 v = num_after(t)
-                if v is not None:
-                    dat["SSApm"] = v
+                if v is not None: dat["SSApm"] = v
 
             if "Str. Acc." in t:
                 m = re.search(r"(\d+)\s*%", t)
-                if m:
-                    dat["Acc"] = int(m.group(1)) / 100.0
+                if m: dat["Acc"] = int(m.group(1)) / 100.0
 
             if "Str. Def." in t:
                 m = re.search(r"(\d+)\s*%", t)
-                if m:
-                    dat["Def"] = int(m.group(1)) / 100.0
+                if m: dat["Def"] = int(m.group(1)) / 100.0
 
             if "KD Avg." in t or "Knockdown Avg." in t:
                 v = num_after(t)
-                if v is not None:
-                    # UFCStats "KD Avg." is per 15; we’ll use as rate proxy
-                    dat["KDpm"] = v
+                if v is not None: dat["KDpm"] = v   # UFCStats KD Avg is per 15; proxy rate
 
             if "TD Avg." in t:
                 v = num_after(t)
-                if v is not None:
-                    dat["TD15"] = v  # takedowns per 15
+                if v is not None: dat["TD15"] = v   # takedowns per 15
 
             if "TD Acc." in t:
                 m = re.search(r"(\d+)\s*%", t)
-                if m:
-                    dat["TDAcc"] = int(m.group(1)) / 100.0
+                if m: dat["TDAcc"] = int(m.group(1)) / 100.0
 
             if "TD Def." in t:
                 m = re.search(r"(\d+)\s*%", t)
-                if m:
-                    dat["TDD"] = int(m.group(1)) / 100.0
+                if m: dat["TDD"] = int(m.group(1)) / 100.0
 
             if "Sub. Avg." in t:
                 v = num_after(t)
-                if v is not None:
-                    dat["Sub15"] = v
+                if v is not None: dat["Sub15"] = v
 
-        # Anything missing will be filled by defaults later.
+        # ---- Fight history table: most recent date + bout count ----
+        last_dt = None
+        bouts = 0
+        for row in soup.select("table.b-fight-details__table tbody tr"):
+            cells = [c.get_text(" ", strip=True) for c in row.select("td")]
+            # find the right-most cell that parses as a date
+            for c in reversed(cells):
+                dt = _parse_date(c)
+                if dt:
+                    bouts += 1
+                    if (last_dt is None) or (dt > last_dt):
+                        last_dt = dt
+                    break
+        if last_dt:
+            dat["LastFightDate"] = last_dt.isoformat()
+        dat["BoutCount"] = bouts
+
     except Exception as e:
         print(f"[warn] profile parse: {url}: {e}", file=sys.stderr)
     return dat
