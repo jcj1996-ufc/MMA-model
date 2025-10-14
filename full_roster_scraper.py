@@ -42,7 +42,6 @@ def iter_roster_urls():
             time.sleep(0.4)
         except Exception as e:
             print(f"[warn] roster page {c}: {e}", file=sys.stderr)
-
 def parse_profile(url):
     import re
     dat = {"Height_in":"", "Reach_in":"", "Stance":"", "Age":"", "LastFightDate":"", "BoutCount":0}
@@ -58,13 +57,13 @@ def parse_profile(url):
         for li in soup.select("ul.b-list__box-list li"):
             t = li.get_text(" ", strip=True)
 
-            # Height like: 6' 2"
+            # Height "6' 2""
             if "Height" in t:
                 m = re.findall(r"(\d+)\s*'\s*(\d+)", t)
                 if m:
                     dat["Height_in"] = int(m[0][0]) * 12 + int(m[0][1])
 
-            # Reach like: 74" or 74 in
+            # Reach "74\"" or "74 in"
             if "Reach" in t:
                 m = re.findall(r"(\d+)\s*(?:\"|in)", t.lower())
                 if m:
@@ -74,8 +73,8 @@ def parse_profile(url):
             if "STANCE" in t.upper():
                 dat["Stance"] = t.split(":")[-1].strip()
 
-        # ---- Main stats (right box) ----
-        # Lines look like: "SLpM: 3.45", "Str. Acc.: 54%", "SApM: 2.31", etc.
+        # ---- Main Stats (right box) ----
+        # Lines like "SLpM: 3.45", "Str. Acc.: 54%", "SApM: 2.31", etc.
         for li in soup.select("ul.b-list__box-list--right li"):
             t = li.get_text(" ", strip=True)
 
@@ -83,48 +82,66 @@ def parse_profile(url):
                 m = re.search(r":\s*([-+]?\d+(?:\.\d+)?)", colon_text)
                 return float(m.group(1)) if m else None
 
+            # Significant Strikes Landed per Minute
             if "SLpM" in t:
                 v = num_after(t)
-                if v is not None: dat["SSLpm"] = v
+                if v is not None:
+                    dat["SSLpm"] = v
 
+            # Significant Strikes Absorbed per Minute
             if "SApM" in t:
                 v = num_after(t)
-                if v is not None: dat["SSApm"] = v
+                if v is not None:
+                    dat["SSApm"] = v
 
+            # Striking Accuracy %
             if "Str. Acc." in t:
                 m = re.search(r"(\d+)\s*%", t)
-                if m: dat["Acc"] = int(m.group(1)) / 100.0
+                if m:
+                    dat["Acc"] = int(m.group(1)) / 100.0
 
+            # Striking Defense %
             if "Str. Def." in t:
                 m = re.search(r"(\d+)\s*%", t)
-                if m: dat["Def"] = int(m.group(1)) / 100.0
+                if m:
+                    dat["Def"] = int(m.group(1)) / 100.0
 
+            # Knockdowns Avg (per 15 min in UFCStats)
             if "KD Avg." in t or "Knockdown Avg." in t:
                 v = num_after(t)
-                if v is not None: dat["KDpm"] = v   # UFCStats KD Avg is per 15; proxy rate
+                if v is not None:
+                    dat["KDpm"] = v
 
+            # Takedown Avg (per 15 min)
             if "TD Avg." in t:
                 v = num_after(t)
-                if v is not None: dat["TD15"] = v   # takedowns per 15
+                if v is not None:
+                    dat["TD15"] = v
 
+            # Takedown Accuracy %
             if "TD Acc." in t:
                 m = re.search(r"(\d+)\s*%", t)
-                if m: dat["TDAcc"] = int(m.group(1)) / 100.0
+                if m:
+                    dat["TDAcc"] = int(m.group(1)) / 100.0
 
+            # Takedown Defense %
             if "TD Def." in t:
                 m = re.search(r"(\d+)\s*%", t)
-                if m: dat["TDD"] = int(m.group(1)) / 100.0
+                if m:
+                    dat["TDD"] = int(m.group(1)) / 100.0
 
+            # Submission Avg (per 15 min)
             if "Sub. Avg." in t:
                 v = num_after(t)
-                if v is not None: dat["Sub15"] = v
+                if v is not None:
+                    dat["Sub15"] = v
 
-        # ---- Fight history table: most recent date + bout count ----
+        # ---- Fight History Table: get most recent fight date + bout count ----
         last_dt = None
         bouts = 0
         for row in soup.select("table.b-fight-details__table tbody tr"):
             cells = [c.get_text(" ", strip=True) for c in row.select("td")]
-            # find the right-most cell that parses as a date
+            # look for any cell that parses as a date
             for c in reversed(cells):
                 dt = _parse_date(c)
                 if dt:
@@ -138,8 +155,8 @@ def parse_profile(url):
 
     except Exception as e:
         print(f"[warn] profile parse: {url}: {e}", file=sys.stderr)
-    return dat
 
+    return dat
 def default_stat_block():
     return {
         "SSLpm":3.0,"SSApm":3.0,"Acc":0.47,"Def":0.53,"KDpm":0.10,"TD15":1.5,"TDAcc":0.38,"TDD":0.65,
