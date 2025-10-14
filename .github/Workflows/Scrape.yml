@@ -10,6 +10,7 @@ jobs:
     timeout-minutes: 25
       contents: write
     env:
+    LETTERS: "i"
       ACTIVE_YEARS: "3"
       MIN_BOUTS: "1"
     steps:
