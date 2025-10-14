@@ -147,41 +147,44 @@ def default_stat_block():
         "KDtakenpm":0.12,"KDlast12m":0.20,"Whiff":0.40,"WPA":0.00,"Fouls":0.10,"Camp":0.00,
         "HeadRate":0.70,"CARDIO_ret":0.75,"FinishRate":0.50
     }
-
 def build_roster(out_csv: Path):
     out_csv.parent.mkdir(parents=True, exist_ok=True)
     with out_csv.open("w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=COLS); w.writeheader()
+        w = csv.DictWriter(f, fieldnames=COLS)
+        w.writeheader()
+
         for name, url in iter_roster_urls():
-    row = parse_profile(url)
-    if not row.get("Name"):
-        row["Name"] = name
+            # ---- scrape each profile ----
+            row = parse_profile(url)
+            if not row.get("Name"):
+                row["Name"] = name
 
-    # ---- Active filter ----
-    is_active = True
-    try:
-        if row.get("LastFightDate"):
-            last_dt = datetime.fromisoformat(row["LastFightDate"])
-            years = (datetime.now(timezone.utc) - last_dt).days / 365.25
-            if years > ACTIVE_YEARS:
-                is_active = False
-        else:
-            # No fight history = treat as inactive
-            is_active = False
+            # ---- Active filter ----
+            is_active = True
+            try:
+                if row.get("LastFightDate"):
+                    last_dt = datetime.fromisoformat(row["LastFightDate"])
+                    years = (datetime.now(timezone.utc) - last_dt).days / 365.25
+                    if years > ACTIVE_YEARS:
+                        is_active = False
+                else:
+                    # no fight history → treat as inactive
+                    is_active = False
 
-        if int(row.get("BoutCount", 0)) < MIN_BOUTS:
-            is_active = False
-    except Exception:
-        pass
+                if int(row.get("BoutCount", 0)) < MIN_BOUTS:
+                    is_active = False
+            except Exception:
+                pass
 
-    if not is_active:
-        continue  # skip retired/inactive fighters
+            if not is_active:
+                # skip retired/inactive fighters
+                continue
 
-    row.update(default_stat_block())
-    w.writerow({k: row.get(k, "") for k in COLS})
-    print(f"[info] wrote: {row.get('Name','?')}")
-    time.sleep(0.35)
+            # ---- backfill engineered features + write row ----
+            row.update(default_stat_block())
+            w.writerow({k: row.get(k, "") for k in COLS})
+            print(f"[info] wrote: {row.get('Name','?')}", file=sys.stderr)
+            time.sleep(0.35)
+
     print(f"[ok] wrote {out_csv}")
-
-if __name__ == "__main__":
     build_roster(Path("data/roster.csv"))
