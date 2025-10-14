@@ -3,7 +3,8 @@ import re, time, csv, sys
 from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
-
+import os
+QUICK = os.getenv("QUICK", "0") == "1"
 BASE = "http://ufcstats.com"
 HEADERS = {"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"}
 COLS = ["Name","Age","Height_in","Reach_in","Stance","SSLpm","SSApm","Acc","Def","KDpm","TD15","TDAcc","TDD","TopCtl","BottomCtl","Sub15","OppEsc","Attpm","LateRet","KDtakenpm","KDlast12m","Whiff","WPA","Fouls","Camp","HeadRate","CARDIO_ret","FinishRate"]
@@ -12,7 +13,8 @@ def _get(url, to=25):
     r = requests.get(url, headers=HEADERS, timeout=to); r.raise_for_status(); return r.text
 
 def iter_roster_urls():
-    for c in list("abcdefghijklmnopqrstuvwxyz")+["other"]:
+    letters = list("ab") if QUICK else list("abcdefghijklmnopqrstuvwxyz") + ["other"]
+    for c in letters:
         url = f"{BASE}/statistics/fighters?char={c}&page=all"
         try:
             soup = BeautifulSoup(_get(url), "lxml")
