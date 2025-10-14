@@ -153,12 +153,34 @@ def build_roster(out_csv: Path):
     with out_csv.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=COLS); w.writeheader()
         for name, url in iter_roster_urls():
-            row = parse_profile(url)
-            if not row.get("Name"): row["Name"]=name
-            row.update(default_stat_block())
-            w.writerow({k: row.get(k, "") for k in COLS})
-            print(f"[info] wrote: {row.get('Name','?')}", file=sys.stderr)
-            time.sleep(0.35)
+    row = parse_profile(url)
+    if not row.get("Name"):
+        row["Name"] = name
+
+    # ---- Active filter ----
+    is_active = True
+    try:
+        if row.get("LastFightDate"):
+            last_dt = datetime.fromisoformat(row["LastFightDate"])
+            years = (datetime.now(timezone.utc) - last_dt).days / 365.25
+            if years > ACTIVE_YEARS:
+                is_active = False
+        else:
+            # No fight history = treat as inactive
+            is_active = False
+
+        if int(row.get("BoutCount", 0)) < MIN_BOUTS:
+            is_active = False
+    except Exception:
+        pass
+
+    if not is_active:
+        continue  # skip retired/inactive fighters
+
+    row.update(default_stat_block())
+    w.writerow({k: row.get(k, "") for k in COLS})
+    print(f"[info] wrote: {row.get('Name','?')}")
+    time.sleep(0.35)
     print(f"[ok] wrote {out_csv}")
 
 if __name__ == "__main__":
