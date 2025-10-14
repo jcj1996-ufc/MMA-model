@@ -71,80 +71,83 @@ def parse_profile(url):
 
             # Stance
             if "STANCE" in t.upper():
-                dat["Stance"] = t.split(":")[-1].strip()
+                dat["Stance"] = t.split(":")[-1].
+        # ---- Main Stats (robust across layouts) ----
+        # Try multiple possible <ul> variants used on UFCStats
+        stats_selectors = [
+            "ul.b-list__box-list.b-list__box-list--style-none li",
+            "ul.b-list__box-list.b-list__box-list--border-top li",
+            "ul.b-list__box-list--right li",
+            "ul.b-list__box-list li",
+        ]
 
-                # ---- Main Stats (works on modern UFCStats layout) ----
-        # Format example:
-        # SLpM: 2.46
-        # Str. Acc.: 59%
-        # SApM: 1.27
-        # Str. Def.: 64%
-        # TD Avg.: 3.17
-        # TD Acc.: 62%
-        # TD Def.: 90%
-        # Sub. Avg.: 1.00
+        found_any = False
+        got = set()
 
-        for li in soup.select("ul.b-list__box-list li"):
-            t = li.get_text(" ", strip=True)
+        def num_after(colon_text):
+            m = re.search(r":\s*([-+]?\d+(?:\.\d+)?)", colon_text)
+            return float(m.group(1)) if m else None
 
-            def num_after(colon_text):
-                m = re.search(r":\s*([-+]?\d+(?:\.\d+)?)", colon_text)
-                return float(m.group(1)) if m else None
+        for sel in stats_selectors:
+            items = soup.select(sel)
+            if not items:
+                continue
 
-            # SLpM
-            if "SLpM" in t:
-                v = num_after(t)
-                if v is not None:
-                    dat["SSLpm"] = v
+            for li in items:
+                t = li.get_text(" ", strip=True)
 
-            # SApM
-            if "SApM" in t:
-                v = num_after(t)
-                if v is not None:
-                    dat["SSApm"] = v
+                if "SLpM" in t and "SSLpm" not in got:
+                    v = num_after(t)
+                    if v is not None:
+                        dat["SSLpm"] = v; got.add("SSLpm"); found_any = True
 
-            # Str. Acc. %
-            if "Str. Acc." in t:
-                m = re.search(r"(\d+)\s*%", t)
-                if m:
-                    dat["Acc"] = int(m.group(1)) / 100.0
+                elif "SApM" in t and "SSApm" not in got:
+                    v = num_after(t)
+                    if v is not None:
+                        dat["SSApm"] = v; got.add("SSApm"); found_any = True
 
-            # Str. Def. %
-            if "Str. Def." in t:
-                m = re.search(r"(\d+)\s*%", t)
-                if m:
-                    dat["Def"] = int(m.group(1)) / 100.0
+                elif "Str. Acc." in t and "Acc" not in got:
+                    m = re.search(r"(\d+)\s*%", t)
+                    if m:
+                        dat["Acc"] = int(m.group(1)) / 100.0; got.add("Acc"); found_any = True
 
-            # Takedown Avg (per 15)
-            if "TD Avg." in t:
-                v = num_after(t)
-                if v is not None:
-                    dat["TD15"] = v
+                elif "Str. Def." in t and "Def" not in got:
+                    m = re.search(r"(\d+)\s*%", t)
+                    if m:
+                        dat["Def"] = int(m.group(1)) / 100.0; got.add("Def"); found_any = True
 
-            # Takedown Accuracy %
-            if "TD Acc." in t:
-                m = re.search(r"(\d+)\s*%", t)
-                if m:
-                    dat["TDAcc"] = int(m.group(1)) / 100.0
+                elif ("KD Avg." in t or "Knockdown Avg." in t) and "KDpm" not in got:
+                    v = num_after(t)
+                    if v is not None:
+                        dat["KDpm"] = v; got.add("KDpm"); found_any = True
 
-            # Takedown Defense %
-            if "TD Def." in t:
-                m = re.search(r"(\d+)\s*%", t)
-                if m:
-                    dat["TDD"] = int(m.group(1)) / 100.0
+                elif "TD Avg." in t and "TD15" not in got:
+                    v = num_after(t)
+                    if v is not None:
+                        dat["TD15"] = v; got.add("TD15"); found_any = True
 
-            # Knockdown Avg (per 15)
-            if "KD Avg." in t or "Knockdown Avg." in t:
-                v = num_after(t)
-                if v is not None:
-                    dat["KDpm"] = v
+                elif "TD Acc." in t and "TDAcc" not in got:
+                    m = re.search(r"(\d+)\s*%", t)
+                    if m:
+                        dat["TDAcc"] = int(m.group(1)) / 100.0; got.add("TDAcc"); found_any = True
 
-            # Submission Avg (per 15)
-            if "Sub. Avg." in t:
-                v = num_after(t)
-                if v is not None:
-                    dat["Sub15"] = v
+                elif "TD Def." in t and "TDD" not in got:
+                    m = re.search(r"(\d+)\s*%", t)
+                    if m:
+                        dat["TDD"] = int(m.group(1)) / 100.0; got.add("TDD"); found_any = True
 
+                elif "Sub. Avg." in t and "Sub15" not in got:
+                    v = num_after(t)
+                    if v is not None:
+                        dat["Sub15"] = v; got.add("Sub15"); found_any = True
+
+            # If we already found a bunch, no need to try other selectors
+            if len(got) >= 7:
+                break
+
+        if not found_any:
+            # Log once per profile so you can see which pages need attention
+            print(f"[warn] no stats list found for {dat.get('Name','?')} ({url})", file=sys.stderr)
         # ---- Fight History Table: get most recent fight date + bout count ----
         last_dt = None
         bouts = 0
