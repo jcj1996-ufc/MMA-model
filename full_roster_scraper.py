@@ -21,6 +21,7 @@ def iter_roster_urls():
     else:
         letters = list("abcdefghijklmnopqrstuvwxyz") + ["other"]
     for c in letters:
+        print(f"[info] letter: {c}", file=sys.stderr)
         url = f"{BASE}/statistics/fighters?char={c}&page=all"
         try:
             soup = BeautifulSoup(_get(url), "lxml")
@@ -67,6 +68,7 @@ def build_roster(out_csv: Path):
             if not row.get("Name"): row["Name"]=name
             row.update(default_stat_block())
             w.writerow({k: row.get(k, "") for k in COLS})
+            print(f"[info] wrote: {row.get('Name','?')}", file=sys.stderr)
             time.sleep(0.35)
     print(f"[ok] wrote {out_csv}")
 
