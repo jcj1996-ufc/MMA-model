@@ -9,7 +9,7 @@ jobs:
     permissions:
       contents: write
     env:
-  LETTERS: "abcdefghijklm"
+  LETTERS: "abcdef"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
