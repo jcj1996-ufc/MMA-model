@@ -154,7 +154,6 @@ def build_roster(out_csv: Path):
         w.writeheader()
 
         for name, url in iter_roster_urls():
-            # ---- scrape each profile ----
             row = parse_profile(url)
             if not row.get("Name"):
                 row["Name"] = name
@@ -168,7 +167,6 @@ def build_roster(out_csv: Path):
                     if years > ACTIVE_YEARS:
                         is_active = False
                 else:
-                    # no fight history → treat as inactive
                     is_active = False
 
                 if int(row.get("BoutCount", 0)) < MIN_BOUTS:
@@ -177,13 +175,14 @@ def build_roster(out_csv: Path):
                 pass
 
             if not is_active:
-                # skip retired/inactive fighters
-                continue
+                continue  # skip retired/inactive fighters
 
-            # ---- backfill engineered features + write row ----
-            row.update(default_stat_block())
+            # ---- Merge defaults FIRST, then real stats OVERRIDE ----
+            row = {**default_stat_block(), **row}
+
+            # ---- Write row ----
             w.writerow({k: row.get(k, "") for k in COLS})
-            print(f"[info] wrote: {row.get('Name','?')}", file=sys.stderr)
+            print(f"[info] wrote: {row.get('Name','?')}")
             time.sleep(0.35)
 
     print(f"[ok] wrote {out_csv}")
