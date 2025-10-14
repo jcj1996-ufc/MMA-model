@@ -8,6 +8,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      QUICK: "1"     # ✅ run fast version (A/B only)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
