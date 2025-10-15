@@ -36,7 +36,7 @@ def _upload_to_github(path: Path):
                      data=json.dumps(body))
     r.raise_for_status()
 
-@app.post("/admin/scrape")
+@app.get("/admin/scrape")
 async def admin_scrape(request: Request):
     if request.query_params.get("key") != os.environ.get("ADMIN_KEY"):
         raise HTTPException(status_code=403, detail="forbidden")
