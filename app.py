@@ -181,3 +181,63 @@ def api_predict(a: str, b: str):
         R_A=float(R_A), R_B=float(R_B),
     )
     return JSONResponse(out)
+# --- ADMIN SCRAPER (FastAPI) ---
+import os, base64, json
+from pathlib import Path
+import requests
+from fastapi import HTTPException, Request
+from full_roster_scraper import build_roster
+
+# Use your existing FastAPI instance (usually called "app" or "api")
+try:
+    app  # if "app" exists, use it
+except NameError:
+    try:
+        app = api  # if "api" exists, use it
+    except NameError:
+        from fastapi import FastAPI
+        app = FastAPI()  # fallback (rarely needed)
+
+def _upload_to_github(path: Path):
+    repo   = os.environ["GH_REPO"]         # e.g. "jcj1996-ufc/MMA-model"
+    branch = os.environ.get("GH_BRANCH", "main")
+    token  = os.environ["GH_PAT"]
+
+    api_url = f"https://api.github.com/repos/{repo}/contents/data/roster.csv"
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github+json",
+    }
+
+    # get current SHA if file exists
+    sha = None
+    r = requests.get(api_url, params={"ref": branch}, headers=headers)
+    if r.status_code == 200:
+        sha = r.json().get("sha")
+
+    content = base64.b64encode(path.read_bytes()).decode("utf-8")
+    body = {
+        "message": "Update roster.csv via Render scraper",
+        "content": content,
+        "branch": branch,
+    }
+    if sha:
+        body["sha"] = sha
+
+    r = requests.put(api_url, headers=headers, data=json.dumps(body))
+    r.raise_for_status()
+
+@app.post("/admin/scrape")
+async def admin_scrape(request: Request):
+    # Require secret key
+    if request.query_params.get("key") != os.environ.get("ADMIN_KEY"):
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    # Run scraper
+    out = Path("/tmp/roster.csv")
+    build_roster(out)
+
+    # Upload to GitHub
+    _upload_to_github(out)
+
+    return {"ok": True, "wrote": str(out)}
