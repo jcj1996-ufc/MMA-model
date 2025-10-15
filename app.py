@@ -4,6 +4,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 import pandas as pd
 from pathlib import Path
 import numpy as np
+app = FastAPI(title="MMA Model")
 # --- ADMIN SCRAPE ENDPOINT (FastAPI) ---
 import os, base64, json
 from pathlib import Path
@@ -44,7 +45,6 @@ async def admin_scrape(request: Request):
     build_roster(out)
     _upload_to_github(out)
     return {"ok": True, "wrote": str(out)}
-app = FastAPI(title="MMA Model")
 
 DATA = Path("data")
 DATA.mkdir(exist_ok=True)
